@@ -1,4 +1,4 @@
-use crate::{mock::*, Error, Event, Proofs};
+use crate::{mock::*, Error, Proofs};
 use frame_support::{assert_noop, assert_ok};
 use sp_runtime::BoundedVec;
 
@@ -57,5 +57,41 @@ fn revoke_claim_failed_when_claim_with_wrong_owner() {
 			PoeModule::revoke_claim(RuntimeOrigin::signed(2), claim),
 			Error::<Test>::NotClaimOwner
 		);
+	});
+}
+
+#[test]
+fn transfer_claim_works() {
+	new_test_ext().execute_with(|| {
+		let claim = BoundedVec::try_from(vec![0, 1]).unwrap();
+		let origin = RuntimeOrigin::signed(1);
+		let _ = PoeModule::create_claim(origin.clone(), claim.clone());
+		assert_ok!(PoeModule::transfer_claim(origin, claim.clone(), 2));
+		assert_eq!(
+			Proofs::<Test>::get(&claim),
+			Some((2, frame_system::Pallet::<Test>::block_number()))
+		);
+	});
+}
+
+#[test]
+fn transfer_claim_failed_when_claim_with_wrong_owner() {
+	new_test_ext().execute_with(|| {
+		let claim = BoundedVec::try_from(vec![0, 1]).unwrap();
+		let origin = RuntimeOrigin::signed(1);
+		let _ = PoeModule::create_claim(origin, claim.clone());
+		assert_noop!(
+			PoeModule::transfer_claim(RuntimeOrigin::signed(2), claim, 1),
+			Error::<Test>::NotClaimOwner
+		);
+	});
+}
+
+#[test]
+fn transfer_claim_failed_when_claim_not_exist() {
+	new_test_ext().execute_with(|| {
+		let claim = BoundedVec::try_from(vec![0, 1]).unwrap();
+		let origin = RuntimeOrigin::signed(1);
+		assert_noop!(PoeModule::transfer_claim(origin, claim, 1), Error::<Test>::ClaimNotExist);
 	});
 }

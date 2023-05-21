@@ -35,6 +35,7 @@
             llvmPackages.libclang
             rustToolchain
             cargo-watch
+            cargo-expand
           ];
 
           shellHook = ''
