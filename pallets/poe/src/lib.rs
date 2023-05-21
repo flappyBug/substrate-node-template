@@ -97,5 +97,20 @@ pub mod pallet {
 
 			Ok(().into())
 		}
+
+		#[pallet::weight(0)]
+		#[pallet::call_index(2)]
+		pub fn transfer_claim(
+			origin: OriginFor<T>,
+			claim: BoundedVec<u8, T::MaxClaimLength>,
+			dest: T::AccountId,
+		) -> DispatchResultWithPostInfo {
+			let sender = ensure_signed(origin)?;
+
+			let (owner, _) = Proofs::<T>::get(&claim).ok_or(Error::<T>::ClaimNotExist)?;
+			ensure!(owner == sender, Error::<T>::NotClaimOwner);
+			Proofs::<T>::insert(&claim, (dest, frame_system::Pallet::<T>::block_number()));
+			Ok(().into())
+		}
 	}
 }
