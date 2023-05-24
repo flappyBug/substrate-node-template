@@ -20,4 +20,5 @@ jobs:
           components: rustfmt, rust-src, clippy
       - uses: Swatinem/rust-cache@v2
       - name: Run tests
-        run: cargo test
+        run: cargo +nightly-2023-01-01 test -Z sparse-registry
+
