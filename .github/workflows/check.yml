@@ -1,24 +1,16 @@
-name: Rust
-
+name: "CI Nix"
 on:
-  push:
-    branches: [master]
   pull_request:
-    branches: [master]
-env:
-  CARGO_TERM_COLOR: always
+  push:
 jobs:
-  test:
-    name: Test
+  check:
+    name: Rust project
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly-2023-01-01
-          targets: wasm32-unknown-unknown
-          components: rustfmt, rust-src, clippy
-      - uses: Swatinem/rust-cache@v2
-      - name: Run tests
-        run: cargo +nightly-2023-01-01 test -Z sparse-registry
-
+    - uses: actions/checkout@v3
+    - uses: cachix/install-nix-action@v20
+      with:
+        extra_nix_config: |
+          experimental-features = nix-command flakes
+    - run: nix develop -c rustc --version
+    - run: nix develop -c cargo test
