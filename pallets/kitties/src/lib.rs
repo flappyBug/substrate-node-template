@@ -5,6 +5,12 @@
 /// <https://docs.substrate.io/reference/frame-pallets/>
 pub use pallet::*;
 
+#[cfg(test)]
+mod mock;
+
+#[cfg(test)]
+mod tests;
+
 #[frame_support::pallet]
 pub mod pallet {
 	use frame_support::{
@@ -84,6 +90,8 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// Error names should be descriptive.
 		InvalidKittyId,
+
+		SameKittyId,
 		/// Errors should have helpful documentation associated with them.
 		StorageOverflow,
 		NotOwner,
@@ -124,7 +132,7 @@ pub mod pallet {
 			kitty_id_2: KittyId,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			ensure!(kitty_id_1 != kitty_id_2, Error::<T>::InvalidKittyId);
+			ensure!(kitty_id_1 != kitty_id_2, Error::<T>::SameKittyId);
 
 			let kitty_id = Self::get_next_id()?;
 			let kitty_1 = Self::kitties(kitty_id_1).ok_or(Error::<T>::InvalidKittyId)?;
