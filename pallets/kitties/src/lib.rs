@@ -88,12 +88,8 @@ pub mod pallet {
 	// Errors inform users that something went wrong.
 	#[pallet::error]
 	pub enum Error<T> {
-		/// Error names should be descriptive.
 		InvalidKittyId,
-
 		SameKittyId,
-		/// Errors should have helpful documentation associated with them.
-		StorageOverflow,
 		NotOwner,
 	}
 
@@ -120,7 +116,6 @@ pub mod pallet {
 
 			// Emit an event.
 			Self::deposit_event(Event::KittyCreated { who, kitty_id, kitty });
-			// Return a successful DispatchResultWithPostInfo
 			Ok(())
 		}
 
