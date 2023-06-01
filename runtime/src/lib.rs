@@ -277,7 +277,7 @@ impl pallet_poe::Config for Runtime {
 
 impl pallet_kitties::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Randomness = Randomness;
+	type Randomness = InsecureRandomness;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
@@ -301,7 +301,7 @@ construct_runtime!(
 		TemplateModule: pallet_template,
 		PoeModule: pallet_poe,
 		KittiesModule: pallet_kitties,
-		Randomness: pallet_insecure_randomness_collective_flip,
+		InsecureRandomness: pallet_insecure_randomness_collective_flip,
 	}
 );
 
