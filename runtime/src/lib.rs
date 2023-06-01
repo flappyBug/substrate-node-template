@@ -7,6 +7,7 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use pallet_grandpa::AuthorityId as GrandpaId;
+use pallet_insecure_randomness_collective_flip;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -45,8 +46,8 @@ use pallet_transaction_payment::{ConstFeeMultiplier, CurrencyAdapter, Multiplier
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
+pub use pallet_kitties;
 pub use pallet_poe;
-/// Import the template pallet.
 pub use pallet_template;
 
 /// An index to a block.
@@ -274,6 +275,13 @@ impl pallet_poe::Config for Runtime {
 	type MaxClaimLength = ConstU32<512>;
 }
 
+impl pallet_kitties::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Randomness = Randomness;
+}
+
+impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub struct Runtime
@@ -292,6 +300,8 @@ construct_runtime!(
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
 		PoeModule: pallet_poe,
+		KittiesModule: pallet_kitties,
+		Randomness: pallet_insecure_randomness_collective_flip,
 	}
 );
 
