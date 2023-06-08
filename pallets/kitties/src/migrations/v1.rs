@@ -8,17 +8,17 @@ use frame_system::Pallet;
 use scale_info::TypeInfo;
 
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Default, TypeInfo, MaxEncodedLen)]
-pub struct V0Kitty(pub [u8; 16]);
+struct V0Kitty(pub [u8; 16]);
 
 pub fn migrate<T: Config>() -> Weight {
 	let on_chain_version = Pallet::<T>::on_chain_storage_version();
-	let currenct_version = Pallet::<T>::current_storage_version();
+	let current_version = Pallet::<T>::current_storage_version();
 
 	if on_chain_version != 0 {
 		return Weight::zero()
 	}
 
-	if currenct_version != 1 {
+	if current_version != 1 {
 		return Weight::zero()
 	}
 	let module = Kitties::<T>::module_prefix();
