@@ -5,6 +5,7 @@
 /// <https://docs.substrate.io/reference/frame-pallets/>
 pub use pallet::*;
 
+mod migrations;
 #[cfg(test)]
 mod mock;
 
@@ -15,22 +16,37 @@ mod tests;
 pub mod pallet {
 	use frame_support::{
 		pallet_prelude::*,
-		traits::{Currency, ExistenceRequirement, Randomness},
+		traits::{Currency, ExistenceRequirement, Hooks, Randomness, StorageVersion},
+		weights::Weight,
 		Blake2_128Concat, PalletId,
 	};
-	use frame_system::pallet_prelude::*;
+	use frame_system::pallet_prelude::{BlockNumberFor, *};
 	use sp_runtime::traits::AccountIdConversion;
 
 	use sp_io::hashing::blake2_128;
 
+	use crate::migrations;
+
 	pub type KittyId = u32;
 	pub type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+	pub type KittyName = [u8; 4];
+	pub type KittyDna = [u8; 16];
+
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+
+	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
+	pub struct Pallet<T>(_);
 
 	#[derive(
 		Encode, Decode, Clone, Copy, RuntimeDebug, PartialEq, Eq, Default, TypeInfo, MaxEncodedLen,
 	)]
-	pub struct Kitty(pub [u8; 16]);
+	// pub struct Kitty(pub [u8; 16]);
+	pub struct Kitty {
+		pub dna: KittyDna,
+		pub name: KittyName,
+	}
 
 	// The pallet's runtime storage items.
 	// https://docs.substrate.io/main-docs/build/runtime-storage/
@@ -56,9 +72,6 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn kitty_on_sale)]
 	pub type KittyOnSale<T: Config> = StorageMap<_, Blake2_128Concat, KittyId, ()>;
-
-	#[pallet::pallet]
-	pub struct Pallet<T>(_);
 
 	/// Configure the pallet by specifying the parameters and types on which it depends.
 	#[pallet::config]
@@ -125,14 +138,14 @@ pub mod pallet {
 		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
 		#[pallet::call_index(0)]
 		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
-		pub fn create(origin: OriginFor<T>) -> DispatchResult {
+		pub fn create(origin: OriginFor<T>, name: KittyName) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			// This function will return an error if the extrinsic is not signed.
 			// https://docs.substrate.io/main-docs/build/origins/
 			let who = ensure_signed(origin)?;
 
 			let kitty_id = Self::get_next_id()?;
-			let kitty = Kitty(Self::random_value(&who));
+			let kitty = Kitty { dna: Self::random_value(&who), name };
 
 			let price = T::KittyPrice::get();
 			T::Currency::transfer(
@@ -156,6 +169,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			kitty_id_1: KittyId,
 			kitty_id_2: KittyId,
+			name: KittyName,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(kitty_id_1 != kitty_id_2, Error::<T>::SameKittyId);
@@ -164,14 +178,14 @@ pub mod pallet {
 			let kitty_1 = Self::kitties(kitty_id_1).ok_or(Error::<T>::InvalidKittyId)?;
 			let kitty_2 = Self::kitties(kitty_id_2).ok_or(Error::<T>::InvalidKittyId)?;
 
-			let mut data = [0; 16];
+			let mut dna = [0; 16];
 
 			let sector = Self::random_value(&who);
-			for i in 0..kitty_1.0.len() {
-				data[i] = (kitty_1.0[i] & sector[i]) | (kitty_2.0[i] & !sector[i]);
+			for i in 0..kitty_1.dna.len() {
+				dna[i] = (kitty_1.dna[i] & sector[i]) | (kitty_2.dna[i] & !sector[i]);
 			}
 
-			let kitty = Kitty(data);
+			let kitty = Kitty { dna, name };
 
 			let price = T::KittyPrice::get();
 			T::Currency::transfer(
@@ -236,6 +250,13 @@ pub mod pallet {
 			T::Currency::transfer(&who, &owner, price, ExistenceRequirement::KeepAlive)?;
 			Self::deposit_event(Event::KittyBought { who, kitty_id });
 			Ok(())
+		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_runtime_upgrade() -> Weight {
+			migrations::v1::migrate::<T>()
 		}
 	}
 
