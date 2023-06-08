@@ -16,13 +16,17 @@ pub fn migrate<T: Config>() -> Weight {
 	if current_version != 1 {
 		return Weight::zero()
 	}
+
 	let module = Kitties::<T>::module_prefix();
 	let item = Kitties::<T>::storage_prefix();
 
 	for (index, kitty) in
-		storage_key_iter::<KittyId, V0Kitty, Blake2_128Concat>(module, item).drain()
+		storage_key_iter::<KittyId, V1Kitty, Blake2_128Concat>(module, item).drain()
 	{
-		let new_kitty: Kitty = Kitty { dna: kitty.0, name: *b"name__v0" };
+		let mut new_name = [0; 8];
+		new_name[..4].copy_from_slice(&kitty.name);
+		new_name[4..].copy_from_slice(b"__v1");
+		let new_kitty: Kitty = Kitty { dna: kitty.dna, name: new_name };
 		Kitties::<T>::insert(index, new_kitty);
 	}
 
