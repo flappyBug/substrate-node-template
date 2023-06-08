@@ -17,6 +17,10 @@ type Block = frame_system::mocking::MockBlock<Test>;
 
 type Balance = u128;
 
+pub const EXISTENTIAL_DEPOSIT: u128 = 500;
+pub const KITTY_PRICE: u128 = EXISTENTIAL_DEPOSIT * 10;
+pub const PALLET_ID: PalletId = PalletId(*b"py/kitty");
+
 // Configure a mock runtime to test the pallet.
 frame_support::construct_runtime!(
 	pub enum Test where
@@ -30,8 +34,6 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 	}
 );
-
-pub const EXISTENTIAL_DEPOSIT: u128 = 500;
 
 impl pallet_balances::Config for Test {
 	type MaxLocks = ConstU32<50>;
@@ -75,8 +77,8 @@ impl frame_system::Config for Test {
 }
 
 parameter_types! {
-	pub KittyPalletId: PalletId = PalletId(*b"py/kitty");
-	pub KittyPrice: Balance = EXISTENTIAL_DEPOSIT * 10;
+	pub KittyPalletId: PalletId = PALLET_ID;
+	pub KittyPrice: Balance = KITTY_PRICE;
 }
 
 impl pallet_kitties::Config for Test {
