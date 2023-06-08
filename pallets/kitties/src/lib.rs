@@ -30,10 +30,10 @@ pub mod pallet {
 	pub type KittyId = u32;
 	pub type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-	pub type KittyName = [u8; 4];
+	pub type KittyName = [u8; 8];
 	pub type KittyDna = [u8; 16];
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -255,7 +255,8 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_runtime_upgrade() -> Weight {
-			migrations::v1::migrate::<T>()
+			migrations::v1::migrate::<T>();
+			migrations::v2::migrate::<T>()
 		}
 	}
 
