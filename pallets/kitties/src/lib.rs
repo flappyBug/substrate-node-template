@@ -42,7 +42,6 @@ pub mod pallet {
 	#[derive(
 		Encode, Decode, Clone, Copy, RuntimeDebug, PartialEq, Eq, Default, TypeInfo, MaxEncodedLen,
 	)]
-	// pub struct Kitty(pub [u8; 16]);
 	pub struct Kitty {
 		pub dna: KittyDna,
 		pub name: KittyName,
