@@ -230,12 +230,7 @@ pub mod pallet {
 			ensure!(Self::kitty_on_sale(kitty_id).is_some(), Error::<T>::NotOnSale);
 
 			let price = T::KittyPrice::get();
-			T::Currency::transfer(
-				&who,
-				&Self::get_account_id(),
-				price,
-				ExistenceRequirement::KeepAlive,
-			)?;
+
 			<KittyOwner<T>>::insert(kitty_id, &who);
 			<KittyOnSale<T>>::remove(kitty_id);
 			T::Currency::transfer(&who, &owner, price, ExistenceRequirement::KeepAlive)?;

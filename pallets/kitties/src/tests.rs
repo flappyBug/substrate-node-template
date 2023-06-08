@@ -126,3 +126,65 @@ fn it_works_for_transfer() {
 		assert_eq!(KittiesModule::kitty_owner(kitty_id), Some(account_id));
 	})
 }
+
+#[test]
+fn it_works_for_sale() {
+	new_test_ext().execute_with(|| {
+		let kitty_id = 0;
+		let account_id = 1;
+
+		assert_noop!(
+			KittiesModule::sale(RuntimeOrigin::signed(account_id), kitty_id),
+			Error::<Test>::InvalidKittyId
+		);
+
+		let _ = Balances::deposit_creating(&account_id, KITTY_PRICE + EXISTENTIAL_DEPOSIT);
+
+		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(account_id)));
+		assert_ok!(KittiesModule::sale(RuntimeOrigin::signed(account_id), kitty_id));
+		assert!(KittiesModule::kitty_on_sale(kitty_id).is_some());
+		assert_eq!(KittiesModule::kitty_owner(kitty_id), Some(account_id));
+
+		System::assert_last_event(RuntimeEvent::KittiesModule(Event::KittyOnSale {
+			who: account_id,
+			kitty_id,
+		}));
+
+		assert_noop!(
+			KittiesModule::sale(RuntimeOrigin::signed(account_id), kitty_id),
+			Error::<Test>::AlreadyOnSale
+		);
+	})
+}
+
+#[test]
+fn it_works_for_buy() {
+	new_test_ext().execute_with(|| {
+		let kitty_id = 0;
+		let seller_id = 1;
+		let buyer_id = 2;
+
+		assert_noop!(
+			KittiesModule::buy(RuntimeOrigin::signed(buyer_id,), kitty_id),
+			Error::<Test>::NotExist
+		);
+		let _ = Balances::deposit_creating(&seller_id, KITTY_PRICE + EXISTENTIAL_DEPOSIT);
+		let _ = Balances::deposit_creating(&buyer_id, KITTY_PRICE + EXISTENTIAL_DEPOSIT);
+
+		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(seller_id)));
+		assert_ok!(KittiesModule::sale(RuntimeOrigin::signed(seller_id), kitty_id));
+
+		assert_ok!(KittiesModule::buy(RuntimeOrigin::signed(buyer_id,), kitty_id),);
+		assert_eq!(KittiesModule::kitty_owner(kitty_id), Some(buyer_id));
+		assert_balance(seller_id, EXISTENTIAL_DEPOSIT + KITTY_PRICE);
+		assert_balance(buyer_id, EXISTENTIAL_DEPOSIT);
+		System::assert_last_event(RuntimeEvent::KittiesModule(Event::KittyBought {
+			who: buyer_id,
+			kitty_id,
+		}));
+		assert_noop!(
+			KittiesModule::buy(RuntimeOrigin::signed(buyer_id), kitty_id),
+			Error::<Test>::AlreadyOwned
+		);
+	})
+}
