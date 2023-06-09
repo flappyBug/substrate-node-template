@@ -1,13 +1,13 @@
 use crate::{migrations::versioned_types::*, *};
 use frame_support::{
-	migration::storage_key_iter, storage::generator::StorageMap, traits::GetStorageVersion,
-	weights::Weight, Blake2_128Concat,
+	migration::storage_key_iter, runtime_print, storage::generator::StorageMap,
+	traits::GetStorageVersion, weights::Weight, Blake2_128Concat,
 };
-use frame_system::Pallet;
 
 pub fn migrate<T: Config>() -> Weight {
 	let on_chain_version = Pallet::<T>::on_chain_storage_version();
 	let current_version = Pallet::<T>::current_storage_version();
+	log::info!("on_chain_version: {on_chain_version:?}, current_version: {current_version:?}");
 
 	if on_chain_version != 0 {
 		return Weight::zero()
