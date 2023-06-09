@@ -255,8 +255,9 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_runtime_upgrade() -> Weight {
-			migrations::v1::migrate::<T>();
-			migrations::v2::migrate::<T>()
+			let weight = migrations::v2::migrate::<T>();
+			STORAGE_VERSION.put::<Pallet<T>>();
+			weight
 		}
 	}
 
