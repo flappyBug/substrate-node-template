@@ -39,13 +39,7 @@ pub mod pallet {
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
-	#[derive(
-		Encode, Decode, Clone, Copy, RuntimeDebug, PartialEq, Eq, Default, TypeInfo, MaxEncodedLen,
-	)]
-	pub struct Kitty {
-		pub dna: KittyDna,
-		pub name: KittyName,
-	}
+	pub type Kitty = migrations::versioned_types::v2::Kitty;
 
 	// The pallet's runtime storage items.
 	// https://docs.substrate.io/main-docs/build/runtime-storage/
