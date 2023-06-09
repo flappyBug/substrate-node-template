@@ -1,34 +1,23 @@
 use crate::{migrations::versioned_types::*, *};
-use frame_support::{
-	migration::storage_key_iter, storage::generator::StorageMap, traits::GetStorageVersion,
-	weights::Weight, Blake2_128Concat,
-};
-use frame_system::Pallet;
+use frame_support::{traits::GetStorageVersion, weights::Weight};
 
 pub fn migrate<T: Config>() -> Weight {
 	let on_chain_version = Pallet::<T>::on_chain_storage_version();
-	let current_version = Pallet::<T>::current_storage_version();
 
-	if on_chain_version != 0 {
+	if on_chain_version >= 2 {
+		log::info!("on chain version is: {on_chain_version:?}, skipping migration to v2");
 		return Weight::zero()
 	}
 
-	if current_version != 1 {
-		return Weight::zero()
-	}
+	super::v1::migrate::<T>();
 
-	let module = Kitties::<T>::module_prefix();
-	let item = Kitties::<T>::storage_prefix();
-
-	for (index, kitty) in
-		storage_key_iter::<KittyId, V1Kitty, Blake2_128Concat>(module, item).drain()
-	{
+	v2::Kitties::<T>::translate::<v1::Kitty, _>(|_, kitty| {
 		let mut new_name = [0; 8];
 		new_name[..4].copy_from_slice(&kitty.name);
 		new_name[4..].copy_from_slice(b"__v1");
-		let new_kitty: Kitty = Kitty { dna: kitty.dna, name: new_name };
-		Kitties::<T>::insert(index, new_kitty);
-	}
+		let new_kitty = v2::Kitty { name: new_name, dna: kitty.dna };
+		Some(new_kitty)
+	});
 
 	Weight::zero()
 }
