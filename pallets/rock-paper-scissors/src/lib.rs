@@ -44,10 +44,24 @@ pub mod pallet {
 	};
 	use frame_system::{
 		ensure_signed,
-		offchain::{AppCrypto, CreateSignedTransaction},
+		offchain::{
+			AppCrypto, CreateSignedTransaction, SendUnsignedTransaction, SignedPayload, Signer,
+			SigningTypes,
+		},
 		pallet_prelude::*,
-		// Call,
 	};
+
+	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, scale_info::TypeInfo)]
+	pub struct Payload<Public> {
+		number: u64,
+		public: Public,
+	}
+
+	impl<T: SigningTypes> SignedPayload<T> for Payload<T::Public> {
+		fn public(&self) -> T::Public {
+			self.public.clone()
+		}
+	}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -138,6 +152,23 @@ pub mod pallet {
 			}
 		}
 
+		#[pallet::call_index(2)]
+		#[pallet::weight(0)]
+		pub fn unsigned_extrinsic_with_signed_payload(
+			origin: OriginFor<T>,
+			// payload: Payload<T::Public>,
+			_signature: T::Signature,
+		) -> DispatchResult {
+			ensure_none(origin)?;
+
+			log::info!(
+				"OCW ==> in call unsigned_extrinsic_with_signed_payload: {:?}",
+				0 // payload.number
+			);
+			// Return a successful DispatchResultWithPostInfo
+			Ok(())
+		}
+
 		// pub fn bet(orign: OriginFor<T>, hand: Hand) -> DispatchResult {
 		// 	let who = ensure_signed(origin)?;
 		// }
@@ -147,5 +178,89 @@ pub mod pallet {
 		// 		let
 		// 	}
 		// }
+	}
+
+	#[pallet::validate_unsigned]
+	impl<T: Config> ValidateUnsigned for Pallet<T> {
+		type Call = Call<T>;
+
+		/// Validate unsigned call to this module.
+		///
+		/// By default unsigned transactions are disallowed, but implementing the validator
+		/// here we make sure that some particular calls (the ones produced by offchain worker)
+		/// are being whitelisted and marked as valid.
+		fn validate_unsigned(_source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+			const UNSIGNED_TXS_PRIORITY: u64 = 100;
+			let valid_tx = |provide| {
+				ValidTransaction::with_tag_prefix("my-pallet")
+					.priority(UNSIGNED_TXS_PRIORITY) // please define `UNSIGNED_TXS_PRIORITY` before this line
+					.and_provides([&provide])
+					.longevity(3)
+					.propagate(true)
+					.build()
+			};
+
+			// match call {
+			// 	Call::submit_data_unsigned { key: _ } => valid_tx(b"my_unsigned_tx".to_vec()),
+			// 	_ => InvalidTransaction::Call.into(),
+			// }
+
+			match call {
+				Call::unsigned_extrinsic_with_signed_payload { ref signature } => {
+					// if !SignedPayload::<T>::verify::<T::AuthorityId>(payload, signature.clone())
+					// { 	return InvalidTransaction::BadProof.into()
+					// }
+					valid_tx(b"unsigned_extrinsic_with_signed_payload".to_vec())
+				},
+				_ => InvalidTransaction::Call.into(),
+			}
+		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		/// Offchain worker entry point.
+		fn offchain_worker(_block_number: T::BlockNumber) {
+			// let value: u64 = 42;
+			// // This is your call to on-chain extrinsic together with any necessary parameters.
+			// let call = Call::submit_data_unsigned { key: value };
+
+			// // `submit_unsigned_transaction` returns a type of `Result<(), ()>`
+			// //	 ref: https://paritytech.github.io/substrate/master/frame_system/offchain/struct.SubmitTransaction.html
+			// _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+			// 	.map_err(|_| {
+			// 	log::error!("OCW ==> Failed in offchain_unsigned_tx");
+			// });
+
+			let number: u64 = 42;
+			// Retrieve the signer to sign the payload
+			let signer = Signer::<T, T::AuthorityId>::any_account();
+
+			// `send_unsigned_transaction` is returning a type of `Option<(Account<T>, Result<(),
+			// ()>)>`. 	 The returned result means:
+			// 	 - `None`: no account is available for sending transaction
+			// 	 - `Some((account, Ok(())))`: transaction is successfully sent
+			// 	 - `Some((account, Err(())))`: error occurred when sending the transaction
+			if let Some((_, res)) = signer.send_unsigned_transaction(
+				// this line is to prepare and return payload
+				|acct| Payload { number, public: acct.public.clone() },
+				|payload, signature| Call::unsigned_extrinsic_with_signed_payload {
+					// payload,
+					signature,
+				},
+			) {
+				match res {
+					Ok(()) => {
+						log::info!("OCW ==> unsigned tx with signed payload successfully sent.");
+					},
+					Err(()) => {
+						log::error!("OCW ==> sending unsigned tx with signed payload failed.");
+					},
+				};
+			} else {
+				// The case of `None`: no account is available for sending
+				log::error!("OCW ==> No local account available");
+			}
+		}
 	}
 }
