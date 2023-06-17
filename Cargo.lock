@@ -4224,6 +4224,7 @@ dependencies = [
  "sp-inherents",
  "sp-io",
  "sp-keyring",
+ "sp-keystore",
  "sp-runtime",
  "sp-timestamp",
  "substrate-build-script-utils",
@@ -4248,6 +4249,7 @@ dependencies = [
  "pallet-insecure-randomness-collective-flip",
  "pallet-kitties",
  "pallet-poe",
+ "pallet-rock-paper-scissors",
  "pallet-sudo",
  "pallet-template",
  "pallet-timestamp",
@@ -4565,6 +4567,20 @@ dependencies = [
 
 [[package]]
 name = "pallet-poe"
+version = "4.0.0-dev"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
+name = "pallet-rock-paper-scissors"
 version = "4.0.0-dev"
 dependencies = [
  "frame-benchmarking",

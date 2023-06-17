@@ -56,6 +56,7 @@ frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, g
 pallet-template = { version = "4.0.0-dev", default-features = false, path = "../pallets/template" }
 pallet-poe = { version = "4.0.0-dev", default-features = false, path = "../pallets/poe" }
 pallet-kitties = { version = "4.0.0-dev", default-features = false, path = "../pallets/kitties" }
+pallet-rock-paper-scissors = { version = "4.0.0-dev", default-features = false, path = "../pallets/rock-paper-scissors" }
 
 [build-dependencies]
 substrate-wasm-builder = { version = "5.0.0-dev", git = "https://github.com/paritytech/substrate.git", optional = true, branch = "polkadot-v0.9.40" }
@@ -81,6 +82,7 @@ std = [
 	"pallet-template/std",
 	"pallet-poe/std",
 	"pallet-kitties/std",
+	"pallet-rock-paper-scissors/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
