@@ -50,14 +50,19 @@ pub mod pallet {
 		},
 		pallet_prelude::*,
 	};
+	use sp_io::offchain_index;
+	use sp_runtime::offchain::storage;
 
 	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, scale_info::TypeInfo)]
-	pub struct Payload<Public> {
-		number: u64,
+	pub struct Payload<Public, AccountId> {
+		who: AccountId,
+		user_hand: Hand,
+		system_hand: Hand,
+		result: GameResult,
 		public: Public,
 	}
 
-	impl<T: SigningTypes> SignedPayload<T> for Payload<T::Public> {
+	impl<T: SigningTypes> SignedPayload<T> for Payload<T::Public, T::AccountId> {
 		fn public(&self) -> T::Public {
 			self.public.clone()
 		}
@@ -75,18 +80,18 @@ pub mod pallet {
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 	}
 
-	// The pallet's runtime storage items.
-	// https://docs.substrate.io/main-docs/build/runtime-storage/
-	#[pallet::storage]
-	#[pallet::getter(fn something)]
-	// Learn more about declaring storage items:
-	// https://docs.substrate.io/main-docs/build/runtime-storage/#declaring-storage-items
-	pub type Something<T> = StorageValue<_, u32>;
-
+	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, scale_info::TypeInfo, Copy)]
 	pub enum Hand {
 		Rock,
 		Paper,
 		Scissors,
+	}
+
+	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, scale_info::TypeInfo, Copy)]
+	pub enum GameResult {
+		Win,
+		Lose,
+		Tie,
 	}
 
 	// Pallets use events to inform users when important changes are made.
@@ -94,18 +99,8 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// Event documentation should end with an array that provides descriptive names for event
-		/// parameters. [something, who]
-		SomethingStored { something: u32, who: T::AccountId },
-	}
-
-	// Errors inform users that something went wrong.
-	#[pallet::error]
-	pub enum Error<T> {
-		/// Error names should be descriptive.
-		NoneValue,
-		/// Errors should have helpful documentation associated with them.
-		StorageOverflow,
+		UserPlayed { hand: Hand, who: T::AccountId },
+		GameResolved { user_hand: Hand, system_hand: Hand, result: GameResult, who: T::AccountId },
 	}
 
 	// Dispatchable functions allows users to interact with the pallet and invoke state changes.
@@ -113,71 +108,35 @@ pub mod pallet {
 	// Dispatchable functions must be annotated with a weight and must return a DispatchResult.
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// An example dispatchable that takes a singles value as a parameter, writes the value to
-		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
 		#[pallet::call_index(0)]
-		#[pallet::weight(10_000 + T::DbWeight::get().writes(1).ref_time())]
-		pub fn do_something(origin: OriginFor<T>, something: u32) -> DispatchResult {
-			// Check that the extrinsic was signed and get the signer.
-			// This function will return an error if the extrinsic is not signed.
-			// https://docs.substrate.io/main-docs/build/origins/
+		#[pallet::weight(0)]
+		pub fn bet(origin: OriginFor<T>, hand: Hand) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-
-			// Update storage.
-			<Something<T>>::put(something);
-
-			// Emit an event.
-			Self::deposit_event(Event::SomethingStored { something, who });
-			// Return a successful DispatchResultWithPostInfo
+			let key = Self::derive_key(frame_system::Pallet::<T>::block_number());
+			offchain_index::set(&key, &(who.clone(), hand).encode());
+			Self::deposit_event(Event::UserPlayed { hand, who });
 			Ok(())
-		}
-
-		/// An example dispatchable that may throw a custom error.
-		#[pallet::call_index(1)]
-		#[pallet::weight(10_000 + T::DbWeight::get().reads_writes(1,1).ref_time())]
-		pub fn cause_error(origin: OriginFor<T>) -> DispatchResult {
-			let _who = ensure_signed(origin)?;
-
-			// Read a value from storage.
-			match <Something<T>>::get() {
-				// Return an error if the value has not been set.
-				None => return Err(Error::<T>::NoneValue.into()),
-				Some(old) => {
-					// Increment the value read from storage; will error in the event of overflow.
-					let new = old.checked_add(1).ok_or(Error::<T>::StorageOverflow)?;
-					// Update the value in storage with the incremented result.
-					<Something<T>>::put(new);
-					Ok(())
-				},
-			}
 		}
 
 		#[pallet::call_index(2)]
 		#[pallet::weight(0)]
 		pub fn unsigned_extrinsic_with_signed_payload(
 			origin: OriginFor<T>,
-			// payload: Payload<T::Public>,
+			payload: Payload<T::Public, T::AccountId>,
 			_signature: T::Signature,
 		) -> DispatchResult {
 			ensure_none(origin)?;
 
-			log::info!(
-				"OCW ==> in call unsigned_extrinsic_with_signed_payload: {:?}",
-				0 // payload.number
-			);
+			log::info!("OCW ==> in call unsigned_extrinsic_with_signed_payload: {:?}", payload);
+			Self::deposit_event(Event::GameResolved {
+				user_hand: payload.user_hand,
+				system_hand: payload.system_hand,
+				result: payload.result,
+				who: payload.who,
+			});
 			// Return a successful DispatchResultWithPostInfo
 			Ok(())
 		}
-
-		// pub fn bet(orign: OriginFor<T>, hand: Hand) -> DispatchResult {
-		// 	let who = ensure_signed(origin)?;
-		// }
-
-		// impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		// 	fn offchain_worker(_blk_number: T::BlockNumber) {
-		// 		let
-		// 	}
-		// }
 	}
 
 	#[pallet::validate_unsigned]
@@ -200,16 +159,11 @@ pub mod pallet {
 					.build()
 			};
 
-			// match call {
-			// 	Call::submit_data_unsigned { key: _ } => valid_tx(b"my_unsigned_tx".to_vec()),
-			// 	_ => InvalidTransaction::Call.into(),
-			// }
-
 			match call {
-				Call::unsigned_extrinsic_with_signed_payload { ref signature } => {
-					// if !SignedPayload::<T>::verify::<T::AuthorityId>(payload, signature.clone())
-					// { 	return InvalidTransaction::BadProof.into()
-					// }
+				Call::unsigned_extrinsic_with_signed_payload { ref signature, ref payload } => {
+					if !SignedPayload::<T>::verify::<T::AuthorityId>(payload, signature.clone()) {
+						return InvalidTransaction::BadProof.into()
+					}
 					valid_tx(b"unsigned_extrinsic_with_signed_payload".to_vec())
 				},
 				_ => InvalidTransaction::Call.into(),
@@ -220,47 +174,73 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Offchain worker entry point.
-		fn offchain_worker(_block_number: T::BlockNumber) {
-			// let value: u64 = 42;
-			// // This is your call to on-chain extrinsic together with any necessary parameters.
-			// let call = Call::submit_data_unsigned { key: value };
+		fn offchain_worker(block_number: T::BlockNumber) {
+			let key = Self::derive_key(block_number);
+			let val_ref: storage::StorageValueRef<'_> = storage::StorageValueRef::persistent(&key);
+			if let Ok(Some((who, user_hand))) = val_ref.get::<(T::AccountId, Hand)>() {
+				log::info!("OCW ==> user played: {:?}", user_hand);
 
-			// // `submit_unsigned_transaction` returns a type of `Result<(), ()>`
-			// //	 ref: https://paritytech.github.io/substrate/master/frame_system/offchain/struct.SubmitTransaction.html
-			// _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
-			// 	.map_err(|_| {
-			// 	log::error!("OCW ==> Failed in offchain_unsigned_tx");
-			// });
-
-			let number: u64 = 42;
-			// Retrieve the signer to sign the payload
-			let signer = Signer::<T, T::AuthorityId>::any_account();
-
-			// `send_unsigned_transaction` is returning a type of `Option<(Account<T>, Result<(),
-			// ()>)>`. 	 The returned result means:
-			// 	 - `None`: no account is available for sending transaction
-			// 	 - `Some((account, Ok(())))`: transaction is successfully sent
-			// 	 - `Some((account, Err(())))`: error occurred when sending the transaction
-			if let Some((_, res)) = signer.send_unsigned_transaction(
-				// this line is to prepare and return payload
-				|acct| Payload { number, public: acct.public.clone() },
-				|payload, signature| Call::unsigned_extrinsic_with_signed_payload {
-					// payload,
-					signature,
-				},
-			) {
-				match res {
-					Ok(()) => {
-						log::info!("OCW ==> unsigned tx with signed payload successfully sent.");
-					},
-					Err(()) => {
-						log::error!("OCW ==> sending unsigned tx with signed payload failed.");
-					},
+				let random_slice = sp_io::offchain::random_seed();
+				let system_hand = match random_slice[0] % 3 {
+					0 => Hand::Rock,
+					1 => Hand::Paper,
+					2 => Hand::Scissors,
+					_ => unreachable!(),
 				};
-			} else {
-				// The case of `None`: no account is available for sending
-				log::error!("OCW ==> No local account available");
+				log::info!("OCW ==> system plays: {:?}", user_hand);
+				let result = match (user_hand, system_hand) {
+					(Hand::Rock, Hand::Rock) |
+					(Hand::Paper, Hand::Paper) |
+					(Hand::Scissors, Hand::Scissors) => GameResult::Tie,
+					(Hand::Rock, Hand::Scissors) |
+					(Hand::Paper, Hand::Rock) |
+					(Hand::Scissors, Hand::Paper) => GameResult::Win,
+					_ => GameResult::Lose,
+				};
+				let signer = Signer::<T, T::AuthorityId>::any_account();
+
+				if let Some((_, res)) = signer.send_unsigned_transaction(
+					// this line is to prepare and return payload
+					|acct| Payload {
+						who: who.clone(),
+						user_hand,
+						system_hand,
+						result,
+						public: acct.public.clone(),
+					},
+					|payload, signature| Call::unsigned_extrinsic_with_signed_payload {
+						payload,
+						signature,
+					},
+				) {
+					match res {
+						Ok(()) => {
+							log::info!(
+								"OCW ==> unsigned tx with signed payload successfully sent."
+							);
+						},
+						Err(()) => {
+							log::error!("OCW ==> sending unsigned tx with signed payload failed.");
+						},
+					};
+				} else {
+					// The case of `None`: no account is available for sending
+					log::error!("OCW ==> No local account available");
+				}
 			}
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		#[deny(clippy::clone_double_ref)]
+		fn derive_key(block_number: T::BlockNumber) -> Vec<u8> {
+			block_number.using_encoded(|encoded_bn| {
+				b"node-template::storage::"
+					.iter()
+					.chain(encoded_bn)
+					.copied()
+					.collect::<Vec<u8>>()
+			})
 		}
 	}
 }
