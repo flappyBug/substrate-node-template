@@ -8,7 +8,7 @@ async function main() {
   // 获取 Offchain 数据
   const value = await api.rpc.offchain.localStorageGet(
     "PERSISTENT",
-    "node-template::storage::"
+    "node-template::rock-paper-scissors"
   );
 
   const hexValue = value.toHex();

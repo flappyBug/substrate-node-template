@@ -8,6 +8,8 @@ use sp_core::crypto::KeyTypeId;
 
 pub const KEY_TYPE: KeyTypeId = KeyTypeId(*b"btc!");
 
+pub const STORAGE_KEY: &[u8] = b"node-template::rock-paper-scissors";
+
 pub mod crypto {
 	use super::KEY_TYPE;
 	use sp_core::sr25519::Signature as Sr25519Signature;
@@ -38,6 +40,8 @@ pub mod crypto {
 
 #[frame_support::pallet]
 pub mod pallet {
+	use super::STORAGE_KEY;
+
 	use frame_support::{
 		pallet_prelude::{DispatchResult, *},
 		traits::Hooks,
@@ -52,7 +56,6 @@ pub mod pallet {
 	};
 	use sp_io::offchain_index;
 	use sp_runtime::offchain::storage;
-
 	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, scale_info::TypeInfo)]
 	pub struct Payload<Public, AccountId> {
 		who: AccountId,
@@ -112,8 +115,7 @@ pub mod pallet {
 		#[pallet::weight(0)]
 		pub fn bet(origin: OriginFor<T>, hand: Hand) -> DispatchResult {
 			let who = ensure_signed(origin)?;
-			let key = Self::derive_key(frame_system::Pallet::<T>::block_number());
-			offchain_index::set(&key, &(who.clone(), hand).encode());
+			offchain_index::set(STORAGE_KEY, &(who.clone(), hand).encode());
 			Self::deposit_event(Event::UserPlayed { hand, who });
 			Ok(())
 		}
@@ -174,9 +176,9 @@ pub mod pallet {
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		/// Offchain worker entry point.
-		fn offchain_worker(block_number: T::BlockNumber) {
-			let key = Self::derive_key(block_number);
-			let val_ref: storage::StorageValueRef<'_> = storage::StorageValueRef::persistent(&key);
+		fn offchain_worker(_block_number: T::BlockNumber) {
+			let mut val_ref: storage::StorageValueRef<'_> =
+				storage::StorageValueRef::persistent(STORAGE_KEY);
 			if let Ok(Some((who, user_hand))) = val_ref.get::<(T::AccountId, Hand)>() {
 				log::info!("OCW ==> user played: {:?}", user_hand);
 
@@ -187,6 +189,7 @@ pub mod pallet {
 					2 => Hand::Scissors,
 					_ => unreachable!(),
 				};
+				val_ref.clear();
 				log::info!("OCW ==> system plays: {:?}", user_hand);
 				let result = match (user_hand, system_hand) {
 					(Hand::Rock, Hand::Rock) |
@@ -228,19 +231,6 @@ pub mod pallet {
 					log::error!("OCW ==> No local account available");
 				}
 			}
-		}
-	}
-
-	impl<T: Config> Pallet<T> {
-		#[deny(clippy::clone_double_ref)]
-		fn derive_key(block_number: T::BlockNumber) -> Vec<u8> {
-			block_number.using_encoded(|encoded_bn| {
-				b"node-template::storage::"
-					.iter()
-					.chain(encoded_bn)
-					.copied()
-					.collect::<Vec<u8>>()
-			})
 		}
 	}
 }
