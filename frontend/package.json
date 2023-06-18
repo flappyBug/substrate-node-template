@@ -1,0 +1,16 @@
+{
+  "name": "frontend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@polkadot/api": "^10.8.1",
+    "@polkadot/util": "^12.3.2"
+  },
+  "keywords": [],
+  "author": "Haoran Lin",
+  "license": "ISC"
+}
