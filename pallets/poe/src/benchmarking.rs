@@ -13,7 +13,6 @@ benchmarks! {
 
 	create_claim {
 		let d in 0 .. T::MaxClaimLength::get();
-		// let claim = BoundedVec(Vec::with_capacity(d as usize));
 		let claim = BoundedVec::try_from(vec![0; d as usize]).unwrap();
 		let caller: T::AccountId = whitelisted_caller();
 	}: _(RawOrigin::Signed(caller), claim)
