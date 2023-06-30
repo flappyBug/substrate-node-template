@@ -2,16 +2,21 @@
 
 #[cfg(test)]
 mod mock;
+pub mod weights;
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 
 pub use pallet::*;
 
 #[frame_support::pallet]
 pub mod pallet {
-	use frame_support::{pallet_prelude::*, Blake2_128Concat};
-	use frame_system::pallet_prelude::*;
+	pub use super::weights::WeightInfo;
+	pub use frame_support::{pallet_prelude::*, Blake2_128Concat};
+	pub use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -23,6 +28,7 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxClaimLength: Get<u32>;
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		type WeightInfo: WeightInfo;
 	}
 
 	#[pallet::storage]
@@ -62,7 +68,7 @@ pub mod pallet {
 		/// An example dispatchable that takes a singles value as a parameter, writes the value to
 		/// storage and emits an event. This function must be dispatched by a signed extrinsic.
 		#[pallet::call_index(0)]
-		#[pallet::weight(0)]
+		#[pallet::weight(T::WeightInfo::create_claim(claim.len() as u32))]
 		pub fn create_claim(
 			origin: OriginFor<T>,
 			claim: BoundedVec<u8, T::MaxClaimLength>,
@@ -92,7 +98,6 @@ pub mod pallet {
 			claim: BoundedVec<u8, T::MaxClaimLength>,
 		) -> DispatchResultWithPostInfo {
 			let sender = ensure_signed(origin)?;
-
 			let (owner, _) = Proofs::<T>::get(&claim).ok_or(Error::<T>::ClaimNotExist)?;
 			ensure!(owner == sender, Error::<T>::NotClaimOwner);
 
